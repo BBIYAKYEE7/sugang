@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>서버시간 오버레이</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+            background: transparent;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .overlay {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(20, 20, 20, 0.95) 100%);
+            color: white;
+            padding: 20px 25px;
+            border-radius: 16px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            z-index: 9999;
+            min-width: 320px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .overlay:hover {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(30, 30, 30, 0.98) 100%);
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2);
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header-icon {
+            font-size: 18px;
+            margin-right: 10px;
+            color: #667eea;
+        }
+
+        .header-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+        }
+
+        .time-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .time-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .time-label {
+            font-family: 'Pretendard', sans-serif;
+            font-size: 11px;
+            color: #888888;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .time-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: #ffffff;
+            text-align: right;
+        }
+
+        .server-time .time-value {
+            color: #00ff88;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+        }
+
+        .local-time .time-value {
+            color: #667eea;
+            text-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .date-row {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .date-value {
+            font-family: 'Pretendard', sans-serif;
+            font-size: 12px;
+            color: #cccccc;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .status {
+            margin-top: 10px;
+            text-align: center;
+            font-family: 'Pretendard', sans-serif;
+            font-size: 10px;
+            color: #ff6b6b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+        }
+
+        .status.connected {
+            color: #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .milliseconds {
+            font-size: 10px;
+            color: #666666;
+            margin-left: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay">
+        <div class="header">
+            <div class="header-icon">⏰</div>
+            <div class="header-title">고려대학교 수강신청</div>
+        </div>
+        
+        <div class="time-container">
+            <div class="time-row server-time">
+                <div class="time-label">서버시간</div>
+                <div class="time-value" id="serverTime">로딩 중...</div>
+            </div>
+            
+            <div class="time-row local-time">
+                <div class="time-label">로컬시간</div>
+                <div class="time-value" id="localTime">로딩 중...</div>
+            </div>
+            
+            <div class="date-row">
+                <div class="date-value" id="date">날짜 로딩 중...</div>
+            </div>
+        </div>
+        
+        <div class="status" id="status">연결 확인 중...</div>
+    </div>
+
+    <script>
+        let serverTimeInterval;
+        let localTimeInterval;
+        let lastServerTime = '';
+
+        function updateLocalTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('ko-KR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            const milliseconds = now.getMilliseconds().toString().padStart(3, '0');
+            
+            document.getElementById('localTime').innerHTML = `${timeString}<span class="milliseconds">.${milliseconds}</span>`;
+            
+            const dateString = now.toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+            });
+            document.getElementById('date').textContent = dateString;
+        }
+
+        async function updateServerTime() {
+            try {
+                const serverTime = await window.electronAPI.getServerTime();
+                
+                // 서버시간이 변경되었을 때만 업데이트
+                if (serverTime !== lastServerTime) {
+                    document.getElementById('serverTime').textContent = serverTime;
+                    lastServerTime = serverTime;
+                    
+                    // 연결 상태 표시
+                    const statusElement = document.getElementById('status');
+                    statusElement.textContent = '연결됨';
+                    statusElement.className = 'status connected';
+                    statusElement.classList.remove('pulse');
+                }
+            } catch (error) {
+                document.getElementById('serverTime').textContent = '연결 오류';
+                const statusElement = document.getElementById('status');
+                statusElement.textContent = '연결 실패';
+                statusElement.className = 'status';
+                statusElement.classList.add('pulse');
+            }
+        }
+
+        // 초기 실행
+        updateLocalTime();
+        updateServerTime();
+
+        // 주기적 업데이트
+        localTimeInterval = setInterval(updateLocalTime, 50); // 50ms마다 (더 부드러운 밀리초 표시)
+        serverTimeInterval = setInterval(updateServerTime, 1000); // 1초마다 (더 빠른 서버시간 업데이트)
+
+        // 페이지 언로드 시 정리
+        window.addEventListener('beforeunload', () => {
+            if (localTimeInterval) clearInterval(localTimeInterval);
+            if (serverTimeInterval) clearInterval(serverTimeInterval);
+        });
+    </script>
+</body>
+</html>
