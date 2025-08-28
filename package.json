@@ -2,18 +2,18 @@
   "name": "sugang-app",
   "version": "1.0.0",
   "description": "고려대학교 수강신청 Electron 앱",
-  "main": "electron/main.js",
+  "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "concurrently \"npm run dev:electron\" \"npm run dev:website\"",
     "dev:electron": "electron .",
-    "dev:website": "cd website && npm start",
+    "dev:website": "cd web && npm start",
     "build": "npm run build:website && npm run build:electron",
-    "build:website": "cd website && npm run build",
+    "build:website": "cd web && npm run build",
     "build:electron": "npm run icons:generate && electron-builder",
-    "install:website": "cd website && npm install",
+    "install:website": "cd web && npm install",
     "install:electron": "npm install",
-    "icons:generate": "electron-icon-builder --input=./image/logo.png --output=./build --flatten"
+    "icons:generate": "electron-icon-builder --input=./images/logo.png --output=./build --flatten"
   },
   "keywords": ["electron", "sugang", "korea-university"],
   "author": "Your Name",
@@ -35,21 +35,24 @@
       "buildResources": "build"
     },
     "files": [
-      "electron/**/*",
+      "main.js",
+      "preload.js",
+      "overlay.html",
       "node_modules/**/*",
-      "image/**/*"
+      "images/**/*",
+      "!web/node_modules/**"
     ],
     "mac": {
       "category": "public.app-category.education",
-      "icon": "build/icon.icns"
+      "icon": "images/logo.png"
     },
     "win": {
       "target": "nsis",
-      "icon": "build/icon.ico"
+      "icon": "images/logo.png"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "build"
+      "icon": "images"
     }
   }
 }

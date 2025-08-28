@@ -5,5 +5,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveCredentials: (credentials) => ipcRenderer.invoke('save-credentials', credentials),
   getCredentials: () => ipcRenderer.invoke('get-credentials'),
   clearCredentials: () => ipcRenderer.invoke('clear-credentials'),
-  getServerTime: () => ipcRenderer.invoke('get-server-time')
+  getServerTime: () => ipcRenderer.invoke('get-server-time'),
+  getAssetPath: (name) => ipcRenderer.invoke('get-asset-path', name)
 });

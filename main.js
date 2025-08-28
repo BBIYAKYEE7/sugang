@@ -23,7 +23,7 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.js'),
       allowRunningInsecureContent: true
     },
-    icon: path.join(__dirname, '..', 'image', 'logo.png'),
+    icon: path.join(__dirname, 'images', 'logo.png'),
     title: '고려대학교 수강신청',
     show: false
   });
@@ -144,9 +144,20 @@ function createMainWindow() {
 }
 
 function createLoginWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    try {
+      // 창이 없으면 새로 만들고 로드 완료 후 다시 시도
+      if (!mainWindow) {
+        createMainWindow();
+      }
+    } catch (_) {
+      return;
+    }
+    return;
+  }
   // 메인 창에 직접 모달 주입
   mainWindow.webContents.executeJavaScript(`
-    (function() {
+    (async function() {
       // 기존 모달 제거
       const existingModal = document.getElementById('login-modal-overlay');
       if (existingModal) {
@@ -160,6 +171,12 @@ function createLoginWindow() {
         fontLink.href = 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css';
         document.head.appendChild(fontLink);
       }
+
+      // 로고 경로 로드
+      let logoSrc = '';
+      let sloganSrc = '';
+      try { logoSrc = await window.electronAPI.getAssetPath('ku-logo.png'); } catch (_) {}
+      try { sloganSrc = await window.electronAPI.getAssetPath('kuni120-1-hd.png'); } catch (_) {}
 
       // 모달 오버레이 생성
       const overlay = document.createElement('div');
@@ -177,6 +194,7 @@ function createLoginWindow() {
         align-items: center;
         z-index: 2147483646;
         font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+        transition: background 0.25s ease;
       \`;
 
       // 모달 컨테이너
@@ -184,7 +202,7 @@ function createLoginWindow() {
       modal.style.cssText = \`
         background: white;
         border-radius: 8px;
-        width: 450px;
+        width: 520px;
         max-width: 90vw;
         border: 1px solid #ddd;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
@@ -205,37 +223,40 @@ function createLoginWindow() {
             transform: translateY(0) scale(1);
           }
         }
+        @keyframes modalSlideOut {
+          from {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+          to {
+            opacity: 0;
+            transform: translateY(-10px) scale(0.96);
+          }
+        }
         
         .modal-header {
-          background: #C8102E;
-          color: white;
-          padding: 20px;
+          background: #ffffff;
+          color: #111827;
+          padding: 18px 22px;
           display: flex;
-          justify-content: space-between;
           align-items: center;
+          gap: 14px;
         }
+        .modal-header img { height: 32px; width: auto; display: block; }
         
-        .kupid-logo {
-          font-size: 28px;
-          font-weight: bold;
-          letter-spacing: 1px;
-        }
+        .kupid-logo { font-size: 18px; font-weight: 700; letter-spacing: .5px; margin-left: 2px; }
         
         .header-right {
-          text-align: right;
-          font-size: 12px;
-          line-height: 1.4;
+          margin-left: auto;
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
+        .header-right img { height: 28px; width: auto; display: block; opacity: .98; filter: drop-shadow(0 1px 0 rgba(0,0,0,.05)); }
         
-        .slogan {
-          font-size: 10px;
-          opacity: 0.9;
-          margin-top: 5px;
-        }
+        .slogan { font-size: 10px; opacity: 0.9; margin-top: 5px; }
         
-        .modal-content {
-          padding: 30px;
-        }
+        .modal-content { padding: 26px 28px; }
         
         .form-group {
           margin-bottom: 20px;
@@ -261,11 +282,7 @@ function createLoginWindow() {
           box-sizing: border-box;
         }
         
-        .form-group input:focus {
-          outline: none;
-          border-color: #C8102E;
-          box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.1);
-        }
+        .form-group input:focus { outline: none; border-color: #9B1B30; box-shadow: 0 0 0 2px rgba(155, 27, 48, 0.12); }
         
         .checkbox-group {
           margin: 20px 0;
@@ -278,17 +295,12 @@ function createLoginWindow() {
           font-size: 14px;
         }
         
-        .checkbox-item input[type="checkbox"] {
-          margin-right: 10px;
-          width: 16px;
-          height: 16px;
-          accent-color: #C8102E;
-        }
+        .checkbox-item input[type="checkbox"] { margin-right: 10px; width: 16px; height: 16px; accent-color: #9B1B30; }
         
         .btn-container {
           display: flex;
           gap: 10px;
-          margin-top: 25px;
+          margin-top: 18px;
         }
         
         .btn {
@@ -303,29 +315,15 @@ function createLoginWindow() {
           font-family: inherit;
         }
         
-        .btn-primary {
-          background: #C8102E;
-          color: white;
-        }
+        .btn-primary { background: #9B1B30; color: white; }
         
-        .btn-primary:hover {
-          background: #A00020;
-        }
+        .btn-primary:hover { background: #7a0019; }
         
-        .btn-warning {
-          background: #FF6B35;
-          color: white;
-        }
+        .btn-warning { background: #6b7280; color: #fff; }
         
-        .btn-warning:hover {
-          background: #E55A2B;
-        }
+        .btn-warning:hover { background: #4b5563; }
         
-        .btn-secondary {
-          background: #f5f5f5;
-          color: #333;
-          border: 1px solid #ddd;
-        }
+        .btn-secondary { background: #f5f5f5; color: #333; border: 1px solid #ddd; }
         
         .btn-secondary:hover {
           background: #e9e9e9;
@@ -350,18 +348,14 @@ function createLoginWindow() {
       // 모달 HTML 구조
       modal.innerHTML = \`
         <div class="modal-header">
-          <div class="kupid-logo">KUPID</div>
-          <div class="header-right">
-            <div>Korea University Portal to</div>
-            <div>Information Depository</div>
-            <div class="slogan">WE ARE THE NEXT KOREA UNIVERSITY</div>
-          </div>
+          \${logoSrc ? ('<img src="file://' + logoSrc + '" alt="logo" />') : ''}
+          <div class="header-right">\${sloganSrc ? ('<img src="file://' + sloganSrc + '" alt="120th" />') : ''}</div>
         </div>
         
         <div class="modal-content">
           <form id="loginForm">
             <div class="form-group">
-              <label for="username">아이디</label>
+              <label for="username">학번</label>
               <input type="text" id="username" name="username" placeholder="아이디를 입력하세요" required>
               <div class="error-message" id="username-error"></div>
             </div>
@@ -375,11 +369,11 @@ function createLoginWindow() {
             <div class="checkbox-group">
               <div class="checkbox-item">
                 <input type="checkbox" id="autoLogin" checked>
-                <label for="autoLogin">자동 로그인</label>
+                <label for="autoLogin">자동 로그인 (정각/30분 시도)</label>
               </div>
               <div class="checkbox-item">
                 <input type="checkbox" id="saveInfo" checked>
-                <label for="saveInfo">로그인 정보 저장</label>
+                <label for="saveInfo">로그인 정보 저장 (이 기기)</label>
               </div>
               <div class="checkbox-item">
                 <input type="checkbox" id="autoUpdate">
@@ -439,7 +433,7 @@ function createLoginWindow() {
           showSuccess('로그인 정보가 저장되었습니다!');
           
           setTimeout(() => {
-            overlay.remove();
+            closeOverlay();
           }, 1000);
         } catch (error) {
           showError('username-error', '저장 중 오류가 발생했습니다.');
@@ -455,7 +449,7 @@ function createLoginWindow() {
           document.getElementById('password').value = '';
           
           setTimeout(() => {
-            overlay.remove();
+            closeOverlay();
           }, 1000);
         } catch (error) {
           showError('username-error', '삭제 중 오류가 발생했습니다.');
@@ -464,13 +458,13 @@ function createLoginWindow() {
 
       // 취소 버튼
       document.getElementById('cancelBtn').addEventListener('click', () => {
-        overlay.remove();
+        closeOverlay();
       });
 
       // 오버레이 클릭 시 닫기
       overlay.addEventListener('click', (e) => {
         if (e.target === overlay) {
-          overlay.remove();
+          closeOverlay();
         }
       });
 
@@ -491,6 +485,14 @@ function createLoginWindow() {
         
         document.getElementById('saveBtn').disabled = true;
         document.getElementById('saveBtn').textContent = '저장됨';
+      }
+
+      function closeOverlay() {
+        try {
+          overlay.style.background = 'rgba(0,0,0,0)';
+          modal.style.animation = 'modalSlideOut 0.22s ease-in forwards';
+          setTimeout(() => { overlay.remove(); }, 220);
+        } catch (_) { overlay.remove(); }
       }
 
       // 입력 필드 포커스 시 에러 메시지 숨김
@@ -964,6 +966,17 @@ ipcMain.handle('clear-credentials', async () => {
 
 ipcMain.handle('get-server-time', async () => {
   return await getServerTime();
+});
+
+// 애셋 절대경로 전달 (이미지 등)
+ipcMain.handle('get-asset-path', async (_e, name) => {
+  try {
+    // 앱 루트 기준 images 폴더 사용
+    const p = path.join(__dirname, 'images', String(name || ''));
+    return p;
+  } catch (_) {
+    return null;
+  }
 });
 
 app.whenReady().then(createMainWindow);
