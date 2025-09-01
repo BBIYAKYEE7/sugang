@@ -10,30 +10,51 @@
     "dev:website": "cd web && npm start",
     "build": "npm run build:website && npm run build:electron",
     "build:website": "cd web && npm run build",
-    "build:electron": "npm run icons:generate && electron-builder",
+    "build:electron": "electron-builder",
+    "build:mac:x64": "electron-builder --mac dmg --x64",
+    "build:mac:arm64": "electron-builder --mac dmg --arm64",
+    
+    "build:win:x64": "electron-builder --win nsis --x64",
+    "build:win:arm64": "electron-builder --win nsis --arm64",
+    "build:linux:x64": "electron-builder --linux AppImage --x64",
+    "build:linux:arm64": "electron-builder --linux AppImage --arm64",
+    "build:linux:deb": "electron-builder --linux deb --x64 --arm64",
+    "build:all": "npm run build:mac:x64 && npm run build:mac:arm64 && npm run build:win:x64 && npm run build:win:arm64 && npm run build:linux:x64 && npm run build:linux:arm64",
     "install:website": "cd web && npm install",
-    "install:electron": "npm install",
-    "icons:generate": "electron-icon-builder --input=./images/logo.png --output=./build --flatten"
+    "install:electron": "npm install"
   },
-  "keywords": ["electron", "sugang", "korea-university"],
-  "author": "Your Name",
+  "keywords": [
+    "electron",
+    "sugang",
+    "korea-university"
+  ],
+  "author": "BBIYAKYEE7(김재윤) <bbiyakyee7@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BBIYAKYEE7/sugang-app"
+  },
   "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.6.4",
     "concurrently": "^8.2.2",
-    "electron-icon-builder": "^2.0.1"
+    "electron": "^25.9.8",
+    "electron-builder": "^24.6.4"
   },
   "dependencies": {
     "electron-store": "^8.1.0"
   },
   "build": {
     "appId": "com.sugang.app",
-    "productName": "수강신청 앱",
+    "productName": "고려대학교 수강신청",
     "directories": {
       "output": "dist",
       "buildResources": "build"
     },
+    "artifactName": "Setup-${os}-${arch}.${ext}",
+    "dmg": {
+      "background": null,
+      "backgroundColor": "#ffffff"
+    },
+
     "files": [
       "main.js",
       "preload.js",
@@ -44,15 +65,40 @@
     ],
     "mac": {
       "category": "public.app-category.education",
-      "icon": "images/logo.png"
+      "icon": "build/icons/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
     },
     "win": {
-      "target": "nsis",
-      "icon": "images/logo.png"
+      "icon": "build/icons/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
     },
     "linux": {
-      "target": "AppImage",
-      "icon": "images"
+      "icon": "images/logo.png",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
     }
   }
 }

@@ -1,38 +1,532 @@
-.App {
-  text-align: center;
+ /* CSS Variables */
+:root {
+  --bg: #0b0b0c;
+  --panel: #121214;
+  --text: #e7e7ea;
+  --muted: #a0a0ab;
+  --brand: #8b0000;
+  --brand-600: #a30000;
+  --border: #232327;
+  --ring: rgba(139, 0, 0, 0.35);
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+[data-theme="light"] {
+  --bg: #f7f8fa;
+  --panel: #ffffff;
+  --text: #111216;
+  --muted: #5b5b66;
+  --brand: #8b0000;
+  --brand-600: #a30000;
+  --border: #e3e5ea;
+  --ring: rgba(139, 0, 0, 0.20);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+/* 테마 전환 부드럽게 */
+.theme-transition, .theme-transition * {
+  transition: background-color .45s ease, color .45s ease, border-color .45s ease,
+              box-shadow .45s ease, backdrop-filter .45s ease, -webkit-backdrop-filter .45s ease;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: 'Pretendard', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--text);
+  background: radial-gradient(1000px 500px at 80% -10%, rgba(139,0,0,0.18), transparent 60%),
+              radial-gradient(800px 400px at -10% 0%, rgba(139,0,0,0.15), transparent 60%),
+              var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.glass {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  overflow: hidden;
+}
+
+[data-theme="light"] .glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.6));
+  border: 0;
+  box-shadow: none;
+}
+
+/* Liquid Glass 효과 - 완전한 유리 효과 */
+.modal-content.glass {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05)) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 모달 내 모든 요소에 Liquid Glass 효과 적용 */
+.modal-content.glass * {
+  background: transparent !important;
+  backdrop-filter: blur(10px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(180%) !important;
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  -webkit-text-stroke: 0 !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+/* 선택 버튼만 테두리 유지 */
+.modal-asset-btn {
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-theme="light"] .modal-content.glass {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1)) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme="light"] .modal-content.glass * {
+  background: transparent !important;
+  backdrop-filter: blur(10px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(180%) !important;
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  -webkit-text-stroke: 0 !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+.glass::before { display: none; }
+
+.glass::after { display: none; }
+
+.container { width: min(1120px, 92%); margin: 0 auto; }
+
+.header {
+  position: relative; top: 0; z-index: 10;
+  background: rgba(11,11,12,0.75);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 0;
+  min-height: 60px;
+}
+.header-inner { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; position: relative; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+.brand img { display: block; width: 120px; height: 36px; }
+.brand-logo-wide { transform: scaleX(1.1); transform-origin: left center; }
+.nav a { color: var(--muted); text-decoration: none; margin-left: 20px; font-weight: 500; }
+.nav a:hover { color: var(--text); }
+
+.main { padding: 64px 0 36px; }
+.hero { display: grid; grid-template-columns: 1.3fr 1fr; gap: 32px; align-items: center; }
+.hero h1 { margin: 0 0 8px; font-size: 44px; }
+.subtitle { color: var(--muted); margin: 0 0 12px; font-size: 18px; }
+.notice { 
+  color: #f59e0b; 
+  background: rgba(245, 158, 11, 0.1); 
+  padding: 12px; 
+  border-radius: 8px; 
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  margin: 0 0 20px; 
+  font-size: 14px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.cta { display: flex; gap: 12px; align-items: center; }
+
+.hero-image { display: block; width: 360px; max-width: 100%; height: auto; }
+.hero-image--wide { transform: scaleX(1.0); transform-origin: left center; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); color: var(--text); text-decoration: none; box-shadow: 0 0 0 0 transparent; transition: box-shadow .2s, transform .05s, background .2s, color .2s; }
+.btn:hover { box-shadow: none; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: linear-gradient(180deg, var(--brand-600), var(--brand)); border-color: #5f0000; color: #ffffff; }
+.btn-ghost { background: transparent; }
+
+.section { padding: 48px 0; }
+.section-alt { 
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05)) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-top: 0; 
+  border-bottom: 0; 
+  transition: none; 
+  position: relative;
+}
+
+/* 다운로드 섹션 특별 효과 */
+#download.section-alt {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)) !important;
+  backdrop-filter: blur(25px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05) !important;
+}
+.muted { color: var(--muted); }
+.tiny { color: var(--muted); font-size: 12px; }
+
+/* 라이트 모드용 다운로드 섹션 배경 */
+[data-theme="light"] .section-alt {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1)) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+}
+
+/* 라이트 모드용 다운로드 섹션 특별 효과 */
+[data-theme="light"] #download.section-alt {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05)) !important;
+  backdrop-filter: blur(25px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.02) !important;
+}
+
+/* 다운로드 섹션 텍스트 효과 제거 */
+#download h2,
+#download p {
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  -webkit-text-stroke: 0 !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+.features { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 20px; padding: 0; list-style: none; }
+.features li { background: var(--panel); border: 0; padding: 18px; border-radius: 12px; }
+.features li.glass { background: transparent; border: 0; box-shadow: none; }
+.features li.glass::before, .features li.glass::after { display: none; }
+.features h3 { margin: 0 0 6px; font-size: 18px; }
+.features p { margin: 0; color: var(--muted); }
+
+.download { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+.card { display: block; background: var(--panel); border: 0; border-radius: 14px; text-decoration: none; color: var(--text); }
+.card.glass { 
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)) !important;
+  backdrop-filter: blur(12px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.15) !important;
+  transition: all 0.3s ease;
+}
+.card.glass::before, .card.glass::after { display: none; }
+.card.glass:hover { 
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px 0 rgba(0, 0, 0, 0.25) !important;
+  border-color: rgba(139, 0, 0, 0.3) !important;
+  background: linear-gradient(135deg, rgba(139, 0, 0, 0.1), rgba(139, 0, 0, 0.05)) !important;
+}
+.card:hover { box-shadow: none; }
+.card.disabled { opacity: 0.55; cursor: not-allowed; pointer-events: none; }
+.card-body { padding: 18px; display: flex; align-items: baseline; justify-content: space-between; }
+.os { 
+  font-size: 18px; 
+  font-weight: 700; 
+  font-family: 'Pretendard', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+.hint { 
+  color: var(--muted); 
+  font-size: 12px; 
+  font-family: 'JetBrains Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* 라이트 모드용 다운로드 카드 */
+[data-theme="light"] .card.glass {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1)) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1) !important;
+}
+
+[data-theme="light"] .card.glass:hover {
+  box-shadow: 0 8px 25px 0 rgba(0, 0, 0, 0.15) !important;
+  border-color: rgba(139, 0, 0, 0.3) !important;
+  background: linear-gradient(135deg, rgba(139, 0, 0, 0.1), rgba(139, 0, 0, 0.05)) !important;
+}
+
+.footer { border-top: 1px solid var(--border); padding: 18px 0; color: var(--muted); background: var(--panel); }
+.footer-inner.glass { padding: 16px; border-radius: 16px; background: transparent; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.footer .container { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.footer-inner { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; width: 100%; }
+.footer-brand { color: var(--text); margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.4px; }
+.footer-sub { margin: 0; color: var(--muted); }
+.footer-badge { width: 100px; height: auto; opacity: 0.95; }
+.footer-links { display: flex; align-items: center; gap: 12px; }
+.footer-ctas { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.btn-footer { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text); text-decoration: none; box-shadow: 0 0 0 0 transparent; transition: box-shadow .2s, transform .05s, background .2s, color .2s; }
+.btn-footer:hover { box-shadow: none; }
+.btn-footer:active { transform: translateY(1px); }
+.footer a { color: var(--muted); text-decoration: none; }
+.footer a:hover { color: var(--text); }
+
+.vh { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+@media (max-width: 960px) {
+  .hero { grid-template-columns: 1fr; padding-top: 40px; }
+  .features { grid-template-columns: 1fr; }
+  .download { grid-template-columns: 1fr; }
+}
+
+/* 모달 스타일 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  z-index: 1000;
+  padding: 20px;
+  animation: modalFadeIn 0.3s ease-out;
 }
 
-.App-link {
-  color: #61dafb;
+.modal-overlay.closing {
+  animation: modalFadeOut 0.3s ease-in;
 }
 
-@keyframes App-logo-spin {
+.modal-content.glass {
+  max-width: 500px;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  animation: modalSlideIn 0.3s ease-out;
+  /* 글래스 효과를 애니메이션 중에도 유지 - 더 높은 우선순위로 설정 */
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)) !important;
+  backdrop-filter: saturate(180%) blur(16px) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(16px) !important;
+  /* 텍스트 렌더링 개선 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+[data-theme="light"] .modal-content.glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.6)) !important;
+}
+
+.modal-content.glass.closing {
+  animation: modalSlideOut 0.3s ease-in;
+}
+
+@keyframes modalFadeIn {
   from {
-    transform: rotate(0deg);
+    opacity: 0;
   }
   to {
-    transform: rotate(360deg);
+    opacity: 1;
+  }
+}
+
+/* 라이트 모드용 모달 오버레이 */
+[data-theme="light"] .modal-overlay {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+}
+
+@keyframes modalFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modalSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: none !important;
+  /* Liquid Glass 효과 */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)) !important;
+  backdrop-filter: blur(15px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+}
+
+[data-theme="light"] .modal-header {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1)) !important;
+  border-bottom: none !important;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* 강제로 텍스트 효과 제거 */
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+[data-theme="light"] .modal-header h3 {
+  color: #111216 !important;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.modal-body {
+  padding: 24px 28px 28px;
+  /* Liquid Glass 효과 */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)) !important;
+  backdrop-filter: blur(15px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+}
+
+[data-theme="light"] .modal-body {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05)) !important;
+}
+
+.modal-body p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* 강제로 텍스트 효과 제거 */
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+[data-theme="light"] .modal-body p {
+  color: #5b5b66 !important;
+}
+
+.modal-assets {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-asset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 12px;
+  background: transparent !important;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  width: 100%;
+  /* Liquid Glass 효과 */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)) !important;
+  backdrop-filter: blur(12px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme="light"] .modal-asset-btn {
+  color: #111216 !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1)) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+
+.modal-asset-btn:hover {
+  border-color: rgba(139, 0, 0, 0.3) !important;
+  background: linear-gradient(135deg, rgba(139, 0, 0, 0.1), rgba(139, 0, 0, 0.05)) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px 0 rgba(0, 0, 0, 0.25) !important;
+  /* 호버 시에도 Liquid Glass 효과 유지 */
+  backdrop-filter: blur(15px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(15px) saturate(180%) !important;
+}
+
+.asset-name {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* 강제로 텍스트 효과 제거 */
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+.asset-filename {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  line-height: 1.4;
+  word-break: break-all;
+  max-width: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* 강제로 텍스트 효과 제거 */
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+@media (max-width: 600px) {
+  .modal-overlay {
+    padding: 16px;
+  }
+  
+  .modal-content {
+    max-width: none;
+  }
+  
+  .modal-header,
+  .modal-body {
+    padding: 16px;
   }
 }

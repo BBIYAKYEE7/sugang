@@ -1,7 +1,26 @@
-const { app, BrowserWindow, ipcMain, dialog, screen, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen, Menu, shell, nativeImage } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const https = require('https');
+const fs = require('fs');
+const os = require('os');
+
+// [최후의 수단] 샌드박스/프로파일러/GPU 관련 스위치 적용 (개발 모드에서만)
+try {
+  if (!app.isPackaged) {
+    app.commandLine.appendSwitch('no-sandbox');
+    app.commandLine.appendSwitch('disable-features', 'ProcessReuse');
+    app.commandLine.appendSwitch('disable-gpu');
+  } else {
+    // 배포 빌드에서는 안전한 API만 사용
+    app.disableHardwareAcceleration();
+    // V8 관련 취약 구간 우회 (패키지에서만): JIT/Wasm 비활성화
+    app.commandLine.appendSwitch('js-flags', '--jitless --noexpose_wasm');
+    app.commandLine.appendSwitch('disable-features', 'WebAssemblyCSP,SharedArrayBuffer,V8VmFuture');
+  }
+} catch (e) {
+  console.error('Failed to apply command line switches:', e);
+}
 
 // 설정 저장소 초기화
 const store = new Store();
@@ -21,7 +40,11 @@ function createMainWindow() {
       enableRemoteModule: false,
       webSecurity: false, // iframe 접근을 위해 false로 설정
       preload: path.join(__dirname, 'preload.js'),
-      allowRunningInsecureContent: true
+      allowRunningInsecureContent: true,
+      experimentalFeatures: false,
+      webgl: false,
+      plugins: false,
+      sandbox: false
     },
     icon: path.join(__dirname, 'images', 'logo.png'),
     title: '고려대학교 수강신청',
@@ -54,10 +77,11 @@ function createMainWindow() {
             }).then((result) => {
               if (result.response === 1) {
                 store.delete('credentials');
+                store.delete('firstRun'); // firstRun 플래그도 함께 삭제
                 dialog.showMessageBox(mainWindow, {
                   type: 'info',
                   title: '완료',
-                  message: '로그인 정보가 삭제되었습니다.'
+                  message: '로그인 정보가 삭제되었습니다. 다음 실행 시 로그인 정보를 다시 입력해주세요.'
                 });
               }
             });
@@ -69,6 +93,17 @@ function createMainWindow() {
           accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
           click: () => {
             app.quit();
+          }
+        }
+      ]
+    },
+    {
+      label: '업데이트',
+      submenu: [
+        {
+          label: '업데이트 확인',
+          click: () => {
+            checkForUpdatesWithGithub();
           }
         }
       ]
@@ -124,6 +159,15 @@ function createMainWindow() {
     mainWindow.show();
   });
 
+  // 렌더링 지연/이벤트 누락 시 강제 표시 (보수적 타임아웃)
+  setTimeout(() => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+        mainWindow.show();
+      }
+    } catch (_) {}
+  }, 5000);
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -178,7 +222,7 @@ function createLoginWindow() {
       try { logoSrc = await window.electronAPI.getAssetPath('ku-logo.png'); } catch (_) {}
       try { sloganSrc = await window.electronAPI.getAssetPath('kuni120-1-hd.png'); } catch (_) {}
 
-      // 모달 오버레이 생성
+      // 모달 오버레이 생성 (성능 최적화)
       const overlay = document.createElement('div');
       overlay.id = 'login-modal-overlay';
       overlay.style.cssText = \`
@@ -187,17 +231,17 @@ function createLoginWindow() {
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(10px);
+        background: rgba(0, 0, 0, 0.6);
         display: flex;
         justify-content: center;
         align-items: center;
         z-index: 2147483646;
         font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
-        transition: background 0.25s ease;
+        opacity: 0;
+        transition: opacity 0.2s ease;
       \`;
 
-      // 모달 컨테이너
+      // 모달 컨테이너 (성능 최적화)
       const modal = document.createElement('div');
       modal.style.cssText = \`
         background: white;
@@ -205,33 +249,21 @@ function createLoginWindow() {
         width: 520px;
         max-width: 90vw;
         border: 1px solid #ddd;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
         overflow: hidden;
-        animation: modalSlideIn 0.3s ease-out;
+        transform: translateY(-20px) scale(0.95);
+        opacity: 0;
+        transition: all 0.25s ease;
       \`;
 
-      // 애니메이션 스타일 추가
+      // 성능 최적화된 스타일 추가
       const style = document.createElement('style');
       style.textContent = \`
-        @keyframes modalSlideIn {
-          from {
-            opacity: 0;
-            transform: translateY(-20px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+        .login-modal-overlay {
+          will-change: opacity;
         }
-        @keyframes modalSlideOut {
-          from {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-          to {
-            opacity: 0;
-            transform: translateY(-10px) scale(0.96);
-          }
+        .login-modal {
+          will-change: transform, opacity;
         }
         
         .modal-header {
@@ -278,11 +310,16 @@ function createLoginWindow() {
           border-radius: 4px;
           font-size: 14px;
           font-family: inherit;
-          transition: all 0.2s ease;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
           box-sizing: border-box;
+          background: #fff;
         }
         
-        .form-group input:focus { outline: none; border-color: #9B1B30; box-shadow: 0 0 0 2px rgba(155, 27, 48, 0.12); }
+        .form-group input:focus { 
+          outline: none; 
+          border-color: #9B1B30; 
+          box-shadow: 0 0 0 2px rgba(155, 27, 48, 0.12); 
+        }
         
         .checkbox-group {
           margin: 20px 0;
@@ -311,8 +348,9 @@ function createLoginWindow() {
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background-color 0.15s ease, transform 0.1s ease;
           font-family: inherit;
+          user-select: none;
         }
         
         .btn-primary { background: #9B1B30; color: white; }
@@ -342,6 +380,25 @@ function createLoginWindow() {
           margin-top: 8px;
           display: none;
         }
+        
+        .login-header {
+          text-align: center;
+          margin-bottom: 24px;
+        }
+        
+        .login-header h2 {
+          margin: 0 0 8px 0;
+          color: #111827;
+          font-size: 20px;
+          font-weight: 600;
+        }
+        
+        .login-header p {
+          margin: 0;
+          color: #6b7280;
+          font-size: 14px;
+          line-height: 1.5;
+        }
       \`;
       document.head.appendChild(style);
 
@@ -353,6 +410,10 @@ function createLoginWindow() {
         </div>
         
         <div class="modal-content">
+          <div class="login-header">
+            <h2>로그인 정보 설정</h2>
+            <p>수강신청 자동 로그인을 위해 학번과 비밀번호를 입력해주세요.</p>
+          </div>
           <form id="loginForm">
             <div class="form-group">
               <label for="username">학번</label>
@@ -392,8 +453,17 @@ function createLoginWindow() {
         </div>
       \`;
 
+      overlay.className = 'login-modal-overlay';
+      modal.className = 'login-modal';
       overlay.appendChild(modal);
       document.body.appendChild(overlay);
+      
+      // 애니메이션 시작 (다음 프레임에서)
+      requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        modal.style.transform = 'translateY(0) scale(1)';
+        modal.style.opacity = '1';
+      });
 
       // 기존 로그인 정보 불러오기
       window.electronAPI.getCredentials().then(credentials => {
@@ -432,6 +502,7 @@ function createLoginWindow() {
           await window.electronAPI.saveCredentials({ username, password, autoLogin, saveInfo });
           showSuccess('로그인 정보가 저장되었습니다!');
           
+          // 저장 성공 후 1초 뒤에 애니메이션과 함께 닫기
           setTimeout(() => {
             closeOverlay();
           }, 1000);
@@ -448,6 +519,7 @@ function createLoginWindow() {
           document.getElementById('username').value = '';
           document.getElementById('password').value = '';
           
+          // 삭제 성공 후 1초 뒤에 애니메이션과 함께 닫기
           setTimeout(() => {
             closeOverlay();
           }, 1000);
@@ -489,19 +561,38 @@ function createLoginWindow() {
 
       function closeOverlay() {
         try {
-          overlay.style.background = 'rgba(0,0,0,0)';
-          modal.style.animation = 'modalSlideOut 0.22s ease-in forwards';
-          setTimeout(() => { overlay.remove(); }, 220);
-        } catch (_) { overlay.remove(); }
+          // 오버레이 페이드 아웃
+          overlay.style.opacity = '0';
+          
+          // 모달 슬라이드 아웃
+          modal.style.transform = 'translateY(-20px) scale(0.95)';
+          modal.style.opacity = '0';
+          
+          // 애니메이션 완료 후 요소 제거
+          setTimeout(() => { 
+            if (overlay && overlay.parentNode) {
+              overlay.remove(); 
+            }
+          }, 250);
+        } catch (_) { 
+          if (overlay && overlay.parentNode) {
+            overlay.remove(); 
+          }
+        }
       }
 
-      // 입력 필드 포커스 시 에러 메시지 숨김
-      document.getElementById('username').addEventListener('focus', () => {
-        document.getElementById('username-error').style.display = 'none';
+      // 입력 필드 포커스 시 에러 메시지 숨김 (성능 최적화)
+      const usernameInput = document.getElementById('username');
+      const passwordInput = document.getElementById('password');
+      const usernameError = document.getElementById('username-error');
+      const passwordError = document.getElementById('password-error');
+      
+      usernameInput.addEventListener('focus', () => {
+        usernameError.style.display = 'none';
       });
 
-      document.getElementById('password').addEventListener('focus', () => {
-        document.getElementById('password-error').style.display = 'none';
+      passwordInput.addEventListener('focus', () => {
+        passwordError.style.display = 'none';
       });
 
       console.log('로그인 모달이 메인 창에 주입되었습니다.');
@@ -657,11 +748,23 @@ function setupServerTimeModal() {
 }
 
 function setupAutoLogin() {
+  // 배포 빌드에서는 저장된 로그인 정보 완전 초기화 (개발자 정보 제거)
+  if (app.isPackaged) {
+    const isFirstRun = !store.has('firstRun');
+    if (isFirstRun) {
+      // 최초 실행 시 기존 로그인 정보 완전 삭제
+      store.delete('credentials');
+      store.set('firstRun', true);
+      console.log('배포 앱 최초 실행: 기존 로그인 정보 초기화됨');
+    }
+  }
+
   // 저장된 로그인 정보 확인
   const savedCredentials = store.get('credentials');
   
   if (!savedCredentials) {
-    // 최초 실행시 로그인 정보 입력 창 표시
+    // 로그인 정보가 없으면 로그인 정보 입력 창 표시
+    console.log('로그인 정보가 없습니다. 로그인 정보 입력 창을 표시합니다.');
     createLoginWindow();
     return;
   }
@@ -1164,4 +1267,290 @@ function startTimedClicker(targetMs) {
     // 안전장치: 2분 넘으면 중단
     if (Date.now() - start > 120000) clearInterval(interval);
   }, 5);
+}
+
+// GitHub API 기반 업데이트 확인 및 설치 (개선된 버전)
+function checkForUpdatesWithGithub() {
+  const repoOwner = 'BBIYAKYEE7';
+  const repoName = 'sugang';
+  const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/releases/latest`;
+
+  const requestOptions = {
+    headers: {
+      'User-Agent': 'sugang-app-updater',
+      'Accept': 'application/vnd.github+json'
+    }
+  };
+
+  // 현재 OS와 아키텍처 감지
+  const currentPlatform = process.platform;
+  const currentArch = process.arch;
+  
+  let osName, archName;
+  if (currentPlatform === 'darwin') {
+    osName = 'mac';
+    archName = currentArch === 'arm64' ? 'arm64' : 'x64';
+  } else if (currentPlatform === 'win32') {
+    osName = 'win';
+    archName = currentArch === 'arm64' ? 'arm64' : 'x64';
+  } else if (currentPlatform === 'linux') {
+    osName = 'linux';
+    archName = currentArch === 'arm64' ? 'arm64' : 'x64';
+  } else {
+    dialog.showErrorBox('업데이트', '지원되지 않는 운영체제입니다.');
+    return;
+  }
+
+  // 사전 알림 팝업 제거 (조용히 진행)
+
+  https.get(apiUrl, requestOptions, (res) => {
+    let data = '';
+    res.on('data', (chunk) => (data += chunk));
+    res.on('end', async () => {
+      try {
+        console.log('GitHub API 응답:', data);
+        const release = JSON.parse(data);
+        
+        if (!release) {
+          dialog.showErrorBox('업데이트', '릴리스 정보를 찾을 수 없습니다.');
+          return;
+        }
+        
+        if (!release.assets || release.assets.length === 0) {
+          dialog.showErrorBox('업데이트', '릴리스에 다운로드 파일이 없습니다.');
+          return;
+        }
+        
+        console.log('릴리스 정보:', {
+          tag_name: release.tag_name,
+          name: release.name,
+          body: release.body,
+          assets_count: release.assets.length,
+          assets: release.assets.map(a => a.name)
+        });
+
+        // 현재 버전과 최신 버전 비교
+        const currentVersion = require('./package.json').version;
+        const latestVersion = String(release.tag_name || '').replace(/^v/i, '');
+        const normalize = (v) => v.replace(/^v/i, '').split(/[.-]/).map(x=>isNaN(+x)?x:+x);
+        const cmp = (a,b) => { for (let i=0;i<Math.max(a.length,b.length);i++){ const x=a[i]||0, y=b[i]||0; if (x===y) continue; return x>y?1:-1;} return 0; };
+        const isLatest = cmp(normalize(currentVersion), normalize(latestVersion)) >= 0;
+
+        if (isLatest) {
+          // 최신 버전 안내 팝업
+          let iconPath = null;
+          try { iconPath = path.join(__dirname, 'images', 'logo.png'); } catch(_) {}
+          const iconImg = iconPath ? nativeImage.createFromPath(iconPath) : undefined;
+          await dialog.showMessageBox(mainWindow, {
+            type: 'info',
+            title: '최신 버전입니다!',
+            message: '최신 버전입니다!',
+            detail: `현재 버전 v${currentVersion}이(가) 최신 버전입니다.`,
+            icon: iconImg,
+            buttons: ['확인'],
+            defaultId: 0
+          });
+          return;
+        }
+
+        // 현재 시스템에 맞는 설치파일 찾기
+        const expectedNamePrefix = `Setup-${osName}-${archName}`;
+        const asset = release.assets.find((a) => a.name && a.name.startsWith(expectedNamePrefix));
+        
+        if (!asset) {
+          // 현재 시스템용 파일이 없으면 수동 선택 옵션 제공
+          const availableAssets = release.assets
+            .filter(a => a.name && a.name.startsWith('Setup-'))
+            .map(a => a.name);
+          
+          const { response } = await dialog.showMessageBox(mainWindow, {
+            type: 'warning',
+            buttons: ['수동 선택', '취소'],
+            defaultId: 0,
+            title: '업데이트 파일 없음',
+            message: `현재 시스템(${osName} ${archName})용 설치파일을 찾을 수 없습니다.`,
+            detail: `사용 가능한 파일:\n${availableAssets.join('\n')}`
+          });
+          
+          if (response === 0) {
+            // 수동 선택 로직
+            const archChoices = [
+              { label: 'Windows x64', os: 'win', arch: 'x64' },
+              { label: 'Windows arm64', os: 'win', arch: 'arm64' },
+              { label: 'macOS x64', os: 'mac', arch: 'x64' },
+              { label: 'macOS arm64', os: 'mac', arch: 'arm64' },
+              { label: 'Linux x64', os: 'linux', arch: 'x64' },
+              { label: 'Linux arm64', os: 'linux', arch: 'arm64' }
+            ];
+
+            const { response: manualResponse } = await dialog.showMessageBox(mainWindow, {
+              type: 'question',
+              buttons: archChoices.map((c) => c.label).concat('취소'),
+              cancelId: archChoices.length,
+              defaultId: 0,
+              title: '수동 선택',
+              message: '다운로드할 OS/아키텍처를 선택하세요.'
+            });
+            
+            if (manualResponse === archChoices.length) return;
+            
+            const choice = archChoices[manualResponse];
+            const manualAsset = release.assets.find((a) => a.name && a.name.startsWith(`Setup-${choice.os}-${choice.arch}`));
+            
+            if (!manualAsset) {
+              dialog.showErrorBox('업데이트', `선택한 아키텍처의 설치파일을 찾을 수 없습니다.`);
+              return;
+            }
+            
+            await downloadAndInstall(manualAsset, release);
+            return;
+          } else {
+            return;
+          }
+        }
+
+        // 네이티브 대화상자 대신 커스텀 모달 창으로 표시(가로폭 넓게)
+        openUpdateWindow(release, asset, osName, archName).catch((e) => {
+          console.error('업데이트 창 표시 실패:', e);
+        });
+        // response === 2는 건너뛰기
+        
+      } catch (e) {
+        dialog.showErrorBox('업데이트 오류', e.message);
+      }
+    });
+  }).on('error', (err) => {
+    dialog.showErrorBox('네트워크 오류', err.message);
+  });
+}
+
+// 업데이트 커스텀 창 (넓은 레이아웃)
+async function openUpdateWindow(release, asset, osName, archName) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const versionNow = require('./package.json').version;
+  const body = (release.body || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const script = "(() => {\n"
+  + "  try {\n"
+  + "    const prev = document.getElementById('update-modal-overlay');\n"
+  + "    if (prev) prev.remove();\n"
+  + "    window.__UPDATE_ACTION__ = null;\n"
+  + "    const overlay = document.createElement('div');\n"
+  + "    overlay.id = 'update-modal-overlay';\n"
+  + "    overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; z-index: 2147483646; opacity: 0; transition: opacity .18s ease; font-family: -apple-system, BlinkMacSystemFont, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;';\n"
+  + "    const modal = document.createElement('div');\n"
+  + "    modal.style.cssText = 'width: min(900px, 92vw); max-height: min(80vh, 780px); background: #111827; color: #e5e7eb; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.45); display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; transform: translateY(12px); opacity: .98; transition: transform .2s ease;';\n"
+  + "    const header = document.createElement('div');\n"
+  + "    header.style.cssText = 'padding: 16px 20px; background: #0b1220; border-bottom: 1px solid rgba(255,255,255,.06); display:flex; align-items:center; gap:12px;';\n"
+  + `    header.innerHTML = "<div style=\\"font-weight:700\\">업데이트 가능: ${release.tag_name}</div><div style=\\"margin-left:auto; font-size:12px; opacity:.7\\">현재 버전 ${versionNow} · 대상 ${osName} ${archName}</div>";\n`
+  + "    const content = document.createElement('div');\n"
+  + "    content.style.cssText = 'padding: 16px 20px; overflow: auto;';\n"
+  + "    const note = document.createElement('div');\n"
+  + "    note.style.cssText = 'white-space: pre-wrap; line-height:1.5; font-size:13px; word-break: break-word;';\n"
+  + `    note.innerHTML = '${body.replace(/'/g, "\\'")}';\n`
+  + "    content.appendChild(note);\n"
+  + "    const footer = document.createElement('div');\n"
+  + "    footer.style.cssText = 'padding: 12px 16px; background:#0b1220; border-top:1px solid rgba(255,255,255,.06); display:flex; gap:10px; position:sticky; bottom:0;';\n"
+  + "    const primary = document.createElement('button');\n"
+  + "    primary.textContent = '지금 업데이트';\n"
+  + "    primary.style.cssText = 'flex:0 0 auto; padding:10px 14px; border-radius:8px; background:#C8102E; color:#fff; border:none; font-weight:700; cursor:pointer;';\n"
+  + "    const later = document.createElement('button');\n"
+  + "    later.textContent = '나중에';\n"
+  + "    later.style.cssText = 'flex:0 0 auto; padding:10px 14px; border-radius:8px; background:#374151; color:#fff; border:none; font-weight:600; cursor:pointer;';\n"
+  + "    const skip = document.createElement('button');\n"
+  + "    skip.textContent = '건너뛰기';\n"
+  + "    skip.style.cssText = 'margin-left:auto; flex:0 0 auto; padding:10px 14px; border-radius:8px; background:#1f2937; color:#9ca3af; border:1px solid #374151; cursor:pointer;';\n"
+  + "    footer.appendChild(primary);\n"
+  + "    footer.appendChild(later);\n"
+  + "    footer.appendChild(skip);\n"
+  + "    modal.appendChild(header);\n"
+  + "    modal.appendChild(content);\n"
+  + "    modal.appendChild(footer);\n"
+  + "    overlay.appendChild(modal);\n"
+  + "    document.body.appendChild(overlay);\n"
+  + "    requestAnimationFrame(() => { overlay.style.opacity = '1'; modal.style.transform = 'translateY(0)'; });\n"
+  + "    function close() { overlay.style.opacity = '0'; setTimeout(()=> overlay.remove(), 160); }\n"
+  + "    overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });\n"
+  + "    primary.addEventListener('click', () => { window.__UPDATE_ACTION__ = 'now'; close(); });\n"
+  + "    later.addEventListener('click', () => { window.__UPDATE_ACTION__ = 'later'; close(); });\n"
+  + "    skip.addEventListener('click', () => { window.__UPDATE_ACTION__ = 'skip'; close(); });\n"
+  + "    return true;\n"
+  + "  } catch(e) { console.error(e); return false; }\n"
+  + "})()";
+  
+  await mainWindow.webContents.executeJavaScript(script);
+  
+  // 액션 수신(폴링)
+  async function waitForAction(timeoutMs) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const val = await mainWindow.webContents.executeJavaScript('window.__UPDATE_ACTION__ || null').catch(()=>null);
+      if (val) return val;
+      await new Promise(r => setTimeout(r, 200));
+    }
+    return 'skip';
+  }
+  const action = await waitForAction(120000);
+
+  if (action === 'now') {
+    await downloadAndInstall(asset, release);
+  } else if (action === 'later') {
+    setTimeout(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      dialog.showMessageBox(mainWindow, { type: 'info', message: '업데이트 알림', detail: '1시간이 지났습니다. 업데이트를 다시 확인하시겠습니까?' });
+    }, 60 * 60 * 1000);
+  }
+}
+
+// 다운로드 및 설치 함수
+async function downloadAndInstall(asset, release) {
+  const downloadUrl = asset.browser_download_url;
+  const tmpDir = app.getPath('temp');
+  const outPath = path.join(tmpDir, asset.name);
+
+  // 다운로드 진행률 표시
+  const progressDialog = await dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    buttons: ['취소'],
+    defaultId: 0,
+    title: '다운로드 중',
+    message: `${asset.name} 다운로드 중...`,
+    detail: '잠시만 기다려주세요.'
+  });
+
+  const file = fs.createWriteStream(outPath);
+  
+  https.get(downloadUrl, (downloadRes) => {
+    if (downloadRes.statusCode >= 300 && downloadRes.statusCode < 400 && downloadRes.headers.location) {
+      // GitHub S3 리디렉션 처리
+      https.get(downloadRes.headers.location, (redirRes) => redirRes.pipe(file));
+    } else {
+      downloadRes.pipe(file);
+    }
+    
+    file.on('finish', () => {
+      file.close(() => {
+        dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          buttons: ['지금 설치', '폴더 보기', '닫기'],
+          defaultId: 0,
+          title: '다운로드 완료',
+          message: `${asset.name} 다운로드가 완료되었습니다.`,
+          detail: outPath
+        }).then(({ response }) => {
+          if (response === 0) {
+            shell.openPath(outPath);
+            // 설치 후 앱 종료
+            setTimeout(() => {
+              app.quit();
+            }, 2000);
+          } else if (response === 1) {
+            shell.showItemInFolder(outPath);
+          }
+        });
+      });
+    });
+  }).on('error', (err) => {
+    dialog.showErrorBox('다운로드 실패', err.message);
+  });
 }
