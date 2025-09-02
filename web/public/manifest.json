@@ -3,24 +3,28 @@
   "name": "고려대학교 수강신청 자동화 도구",
   "icons": [
     {
-      "src": "/logo.png?v=3",
+      "src": "/web/public/logo.png",
       "sizes": "16x16",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/logo.png?v=3",
+      "src": "/web/public/logo.png",
       "sizes": "32x32",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/logo.png?v=3",
+      "src": "/web/public/logo.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/logo.png?v=3",
+      "src": "/web/public/logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "start_url": ".",
